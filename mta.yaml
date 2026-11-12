@@ -1,0 +1,43 @@
+_schema-version: "3.1"
+ID: gr-automation-demo
+description: GR Automation - PDF extraction + S/4HANA goods receipt posting
+version: 1.0.0
+
+modules:
+  - name: gr-automation-demo-srv
+    type: nodejs
+    path: .
+    parameters:
+      buildpack: nodejs_buildpack
+      memory: 256M
+      disk-quota: 512M
+    build-parameters:
+      builder: npm
+      build-result: .
+      ignore:
+        - node_modules/
+        - .git/
+    requires:
+      - name: gr-automation-xsuaa
+      - name: gr-automation-destination
+      - name: gr-automation-connectivity
+
+resources:
+  - name: gr-automation-xsuaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: xsuaa
+      service-plan: application
+      path: ./xs-security.json
+
+  - name: gr-automation-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: destination
+      service-plan: lite
+
+  - name: gr-automation-connectivity
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: connectivity
+      service-plan: lite

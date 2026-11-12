@@ -1,0 +1,8 @@
+node_modules/
+gen/
+.env
+*.db
+*.sqlite
+dist/
+.cds-sidecar/
+default-env.json
