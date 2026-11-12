@@ -1,0 +1,39 @@
+name: Deploy to SAP BTP Cloud Foundry
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: CF Push — GR_Automation_Demo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install CF CLI
+        run: |
+          curl -L "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" \
+            -o /tmp/cf.tgz
+          tar -xzf /tmp/cf.tgz -C /tmp
+          sudo mv /tmp/cf8 /usr/local/bin/cf8
+          cf8 --version
+
+      - name: CF Login
+        run: |
+          cf8 login \
+            -a "${{ secrets.CF_API_URL }}" \
+            -u "${{ secrets.CF_USERNAME }}" \
+            -p "${{ secrets.CF_PASSWORD }}" \
+            -o "${{ secrets.CF_ORG }}" \
+            -s "${{ secrets.CF_SPACE }}" \
+            --skip-ssl-validation
+
+      - name: CF Push
+        run: cf8 push GR_Automation_Demo -f manifest.yml
+
+      - name: Show App URL
+        run: cf8 app GR_Automation_Demo | grep routes

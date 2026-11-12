@@ -1,0 +1,7 @@
+applications:
+  - name: GR_Automation_Demo
+    buildpack: staticfile_buildpack
+    memory: 64M
+    instances: 1
+    random-route: true
+    path: .
