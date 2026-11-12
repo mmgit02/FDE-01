@@ -30,7 +30,6 @@ jobs:
             -p "${{ secrets.CF_PASSWORD }}" \
             -o "${{ secrets.CF_ORG }}" \
             -s "${{ secrets.CF_SPACE }}" \
-            --skip-ssl-validation
 
       - name: CF Push
         run: cf8 push GR_Automation_Demo -f manifest.yml

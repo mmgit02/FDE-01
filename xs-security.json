@@ -1,0 +1,13 @@
+{
+  "xsappname": "gr-automation-demo",
+  "tenant-mode": "dedicated",
+  "description": "GR Automation security descriptor",
+  "scopes": [
+    { "name": "$XSAPPNAME.GRUser",  "description": "GR Automation user" },
+    { "name": "$XSAPPNAME.GRAdmin", "description": "GR Automation admin" }
+  ],
+  "role-templates": [
+    { "name": "GRUser",  "description": "Standard GR user",  "scope-references": ["$XSAPPNAME.GRUser"]  },
+    { "name": "GRAdmin", "description": "GR Administrator",  "scope-references": ["$XSAPPNAME.GRAdmin"] }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "welcomeFile": "/index.html",
+  "authenticationMethod": "none",
+  "routes": [
+    {
+      "source": "^/api/(.*)$",
+      "destination": "gr-srv",
+      "authenticationType": "none"
+    },
+    {
+      "source": "^(.*)$",
+      "localDir": ".",
+      "authenticationType": "none"
+    }
+  ]
+}

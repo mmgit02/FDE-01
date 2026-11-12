@@ -1,0 +1,43 @@
+{
+  "name": "gr-automation-demo",
+  "version": "1.0.0",
+  "description": "GR Automation: PDF delivery note extraction + S/4HANA goods receipt posting",
+  "engines": { "node": ">=18" },
+  "main": "srv/gr-service.js",
+  "scripts": {
+    "start": "cds serve --production",
+    "dev": "cds watch",
+    "build": "cds build --production",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@sap/cds": "^8",
+    "@sap/xssec": "^3",
+    "axios": "^1.6.0",
+    "express": "^4",
+    "multer": "^1.4.5-lts.1",
+    "passport": "^0.7",
+    "pdf-parse": "^1.1.1",
+    "uuid": "^9"
+  },
+  "devDependencies": {
+    "@sap/cds-dk": "^8",
+    "sqlite3": "^5"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": { "database": ":memory:" },
+        "[production]": { "kind": "hana" }
+      },
+      "auth": {
+        "kind": "mocked",
+        "[production]": { "kind": "xsuaa" }
+      }
+    },
+    "server": {
+      "static": true
+    }
+  }
+}

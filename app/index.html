@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GR Automation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="shell">
+  <div class="shell-logo">S<b>AP</b></div>
+  <div class="shell-sep"></div>
+  <div class="shell-title">GR Automation</div>
+  <div class="shell-user" title="Logged in">SS</div>
+</header>
+
+<div class="page">
+  <div class="page-hd">
+    <h1>Goods Receipt Automation</h1>
+    <p>Upload a delivery note PDF — the system extracts PO data, matches against S/4HANA and posts the GR.</p>
+  </div>
+
+  <!-- Step bar -->
+  <div class="steps" id="stepBar">
+    <div class="step active" data-s="0"><div class="step-dot">1</div><div class="step-lbl">Upload PDF</div></div>
+    <div class="step-line" id="sl0"></div>
+    <div class="step" data-s="1"><div class="step-dot">2</div><div class="step-lbl">Match S/4HANA</div></div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step" data-s="2"><div class="step-dot">3</div><div class="step-lbl">Select &amp; Post</div></div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step" data-s="3"><div class="step-dot">4</div><div class="step-lbl">Result</div></div>
+  </div>
+
+  <!-- VIEW 0: Upload -->
+  <div class="view on" id="v0">
+    <div class="card">
+      <div class="card-hd"><div class="card-icon">📄</div><div><div class="card-title">Upload Delivery Note / Shipping Notice</div><div class="card-sub">PDF containing purchase order reference details</div></div></div>
+      <div class="card-bd">
+        <div class="drop-zone" id="dz">
+          <input type="file" id="pdfIn" accept=".pdf" aria-label="Upload PDF">
+          <div class="drop-icon">📤</div>
+          <div class="drop-title">Drop PDF here or click to browse</div>
+          <div class="drop-hint">Accepts: .pdf — delivery notes, shipping notices, packing slips</div>
+        </div>
+        <div id="filePill" class="file-pill" style="display:none">
+          <span class="pill-icon">📄</span>
+          <div><div class="pill-name" id="fName"></div><div class="pill-meta" id="fMeta"></div></div>
+          <button class="pill-rm" id="rmFile" aria-label="Remove">✕</button>
+        </div>
+        <div id="extractedPreview" style="display:none; margin-top:20px; border-top:1px solid var(--border); padding-top:16px">
+          <div class="section-lbl">📋 Extracted PO Information</div>
+          <div class="kv-grid">
+            <div class="kv"><label>PO Number</label><div class="v" id="p-po">—</div></div>
+            <div class="kv"><label>Items Found</label><div class="v" id="p-cnt">—</div></div>
+            <div class="kv"><label>Session ID</label><div class="v" id="p-sid" style="font-size:11px;font-family:monospace">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="act-bar">
+      <div></div>
+      <div class="act-r"><button class="btn btn-p" id="btnMatch" disabled>Match with S/4HANA →</button></div>
+    </div>
+  </div>
+
+  <!-- VIEW 1: Match results -->
+  <div class="view" id="v1">
+    <div class="card">
+      <div class="card-hd"><div class="card-icon">🔍</div><div><div class="card-title">S/4HANA Match Results</div><div class="card-sub">Extracted quantities compared against open PO quantities with tolerance</div></div></div>
+      <div class="card-bd">
+        <div class="ms ms-info"><i>ℹ️</i> Items within 10% quantity tolerance are marked <strong>TOLERANCE</strong>. Review and proceed to select.</div>
+        <div class="tbl-wrap"><table id="matchTbl">
+          <thead><tr><th>Item</th><th>Material</th><th>Description</th><th>UoM</th><th>Extracted Qty</th><th>Open Qty (S/4)</th><th>Status</th></tr></thead>
+          <tbody id="matchBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="act-bar">
+      <div class="act-l"><button class="btn btn-g" onclick="goTo(0)">← Back</button></div>
+      <div class="act-r"><button class="btn btn-p" onclick="goTo(2)">Select Items →</button></div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Select & configure GR -->
+  <div class="view" id="v2">
+    <div class="card">
+      <div class="card-hd"><div class="card-icon">📦</div><div><div class="card-title">Select Items &amp; Post GR</div><div class="card-sub">Check items to include in the goods receipt. Adjust quantities if needed.</div></div></div>
+      <div class="card-bd">
+        <div class="form-row" style="max-width:320px;margin-bottom:18px">
+          <div class="fg"><label class="req">Posting Date</label><input class="fc" type="date" id="postingDate"></div>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th><input type="checkbox" id="selectAll" title="Select all"></th><th>Item</th><th>Material</th><th>Description</th><th>UoM</th><th>GR Quantity</th><th>Status</th></tr></thead>
+          <tbody id="selBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="act-bar">
+      <div class="act-l"><button class="btn btn-g" onclick="goTo(1)">← Back</button></div>
+      <div class="act-r">
+        <button class="btn btn-g" onclick="resetAll()">Cancel</button>
+        <button class="btn btn-p" id="btnPost" onclick="postGR()">🚀 Post Goods Receipt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Result -->
+  <div class="view" id="v3">
+    <div class="success-banner">
+      <div class="succ-ico">✓</div>
+      <div class="succ-title">Goods Receipt Posted Successfully</div>
+      <div class="succ-sub">Document created in S/4HANA — stock updated</div>
+      <div class="doc-num" id="matDocNum">—</div>
+      <div class="doc-lbl">Material Document / Fiscal Year</div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-icon">📋</div><div><div class="card-title">GR Summary</div></div></div>
+      <div class="card-bd"><div class="kv-grid" id="grSummary"></div></div>
+    </div>
+    <div class="act-bar">
+      <div></div>
+      <div class="act-r"><button class="btn btn-p" onclick="resetAll()">🔄 New Request</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="loading-bg" id="loadBg" style="display:none">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-ttl" id="loadTtl">Processing...</div>
+    <div class="loading-sub" id="loadSub">Please wait</div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
