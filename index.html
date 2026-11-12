@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GR Processing Assistant</title>
+  <meta name="description" content="Wireframe: goods receipt processing against SAP purchase orders">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- Shell -->
+<header class="shell">
+  <div class="shell-logo">S<b>AP</b></div>
+  <div class="shell-sep"></div>
+  <div class="shell-title">GR Processing Assistant</div>
+  <div class="shell-user" title="Logged in user">SS</div>
+</header>
+
+<!-- Page -->
+<div class="page">
+  <div class="page-header">
+    <h1>Goods Receipt Processing</h1>
+    <p>Upload a Purchase Order PDF, choose a processing agent, and execute — all from one place</p>
+  </div>
+
+  <!-- Step Indicator -->
+  <div class="steps" id="stepBar">
+    <div class="step active" data-s="0"><div class="step-dot">1</div><div class="step-lbl">Upload PDF</div></div>
+    <div class="step-line" id="sl0"></div>
+    <div class="step" data-s="1"><div class="step-dot">2</div><div class="step-lbl">Select Agent</div></div>
+    <div class="step-line" id="sl1"></div>
+    <div class="step" data-s="2"><div class="step-dot">3</div><div class="step-lbl">Configure &amp; Review</div></div>
+    <div class="step-line" id="sl2"></div>
+    <div class="step" data-s="3"><div class="step-dot">4</div><div class="step-lbl">Results</div></div>
+  </div>
+
+  <!-- VIEW 0: Upload -->
+  <div class="view on" id="v0">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon">📄</div>
+        <div>
+          <div class="card-hd-title">Upload Purchase Order PDF</div>
+          <div class="card-hd-sub">The PDF should contain PO number, vendor, line items, and quantities</div>
+        </div>
+      </div>
+      <div class="card-bd">
+        <div class="drop-zone" id="dz">
+          <input type="file" id="pdfIn" accept=".pdf" aria-label="Upload PDF">
+          <div class="drop-icon">📤</div>
+          <div class="drop-title">Drop your PDF here</div>
+          <div class="drop-hint">or click to browse from your computer</div>
+          <div class="drop-cta">📂 Browse File</div>
+        </div>
+
+        <div id="filePill" class="file-pill" style="display:none">
+          <span style="font-size:22px">📄</span>
+          <div>
+            <div class="file-pill-name" id="fName"></div>
+            <div class="file-pill-meta" id="fMeta"></div>
+          </div>
+          <button class="file-pill-remove" id="rmFile" aria-label="Remove file">✕</button>
+        </div>
+
+        <div id="poPrev" style="display:none; margin-top:20px; padding-top:18px; border-top:1px solid var(--border)">
+          <div class="section-label">📋 Extracted PO Information</div>
+          <div class="kv-grid">
+            <div class="kv"><label>PO Number</label><div class="v" id="p-po">—</div></div>
+            <div class="kv"><label>Vendor</label><div class="v" id="p-vend">—</div></div>
+            <div class="kv"><label>Company Code</label><div class="v" id="p-cc">—</div></div>
+            <div class="kv"><label>Plant</label><div class="v" id="p-plant">—</div></div>
+            <div class="kv"><label>PO Date</label><div class="v" id="p-dt">—</div></div>
+            <div class="kv"><label>Currency</label><div class="v" id="p-cur">—</div></div>
+            <div class="kv"><label>Net Value</label><div class="v" id="p-val">—</div></div>
+            <div class="kv"><label>Line Items</label><div class="v" id="p-items">—</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="act-bar">
+      <div class="act-l"></div>
+      <div class="act-r">
+        <button class="btn btn-p" id="toAgents" disabled>Continue to Agent Selection →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 1: Agent Selection -->
+  <div class="view" id="v1">
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon">🤖</div>
+        <div>
+          <div class="card-hd-title">Select Processing Agent</div>
+          <div class="card-hd-sub">Each agent connects to a specific SAP API or service</div>
+        </div>
+      </div>
+      <div class="card-bd">
+        <div class="agents">
+          <div class="agent-card" data-a="gr" tabindex="0" role="button" aria-pressed="false">
+            <div class="agent-icon">📦</div>
+            <div class="agent-name">GR Posting Agent</div>
+            <div class="agent-desc">Post Goods Receipt against a Purchase Order via SAP standard GR API (Movement Type 101)</div>
+            <span class="agent-badge">Primary</span>
+            <div class="agent-check">✓</div>
+          </div>
+          <div class="agent-card" data-a="val" tabindex="0" role="button" aria-pressed="false">
+            <div class="agent-icon">✅</div>
+            <div class="agent-name">PO Validation Agent</div>
+            <div class="agent-desc">Validate PO status, check open quantities, vendor details, and document consistency before posting</div>
+            <span class="agent-badge">Validation</span>
+            <div class="agent-check">✓</div>
+          </div>
+          <div class="agent-card" data-a="read" tabindex="0" role="button" aria-pressed="false">
+            <div class="agent-icon">🔍</div>
+            <div class="agent-name">PO Reader Agent</div>
+            <div class="agent-desc">Read and display comprehensive PO header, line items, delivery schedules, and current status</div>
+            <span class="agent-badge">Read-only</span>
+            <div class="agent-check">✓</div>
+          </div>
+          <div class="agent-card" data-a="info" tabindex="0" role="button" aria-pressed="false">
+            <div class="agent-icon">💡</div>
+            <div class="agent-name">Additional Info Agent</div>
+            <div class="agent-desc">Retrieve vendor master, material info, pricing conditions, GR/IR status, and delivery history</div>
+            <span class="agent-badge">Info</span>
+            <div class="agent-check">✓</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="act-bar">
+      <div class="act-l"><button class="btn btn-g" onclick="goTo(0)">← Back</button></div>
+      <div class="act-r"><button class="btn btn-p" id="toConfig" disabled>Configure Agent →</button></div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Configure -->
+  <div class="view" id="v2">
+
+    <!-- GR Config -->
+    <div id="cfg-gr" style="display:none">
+      <div class="card">
+        <div class="agent-hd" style="background:rgba(0,112,242,.06);border-color:rgba(0,112,242,.2)">
+          <div class="agent-hd-icon" style="background:var(--brand)">📦</div>
+          <div>
+            <div class="agent-hd-name">GR Posting Agent</div>
+            <div class="agent-hd-desc">POST /sap/opu/odata/sap/API_GOODSMVT_SRV/A_GoodsMovement · Movement Type: 101</div>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="ms ms-info"><i>ℹ️</i> Review the extracted PO data and fill in GR-specific fields before posting to SAP.</div>
+
+          <div style="margin-bottom:18px">
+            <div class="section-label">📋 Purchase Order Reference</div>
+            <div class="kv-grid">
+              <div class="kv"><label>PO Number</label><div class="v" id="c-po">—</div></div>
+              <div class="kv"><label>Vendor</label><div class="v" id="c-vend">—</div></div>
+              <div class="kv"><label>Plant</label><div class="v" id="c-plant">—</div></div>
+              <div class="kv"><label>Movement Type</label><div class="v">101 – GR for PO</div></div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="fg"><label class="req">Posting Date</label><input class="fc" type="date" id="fPostDate"></div>
+            <div class="fg"><label>Document Date</label><input class="fc" type="date" id="fDocDate"></div>
+            <div class="fg"><label>Delivery Note No.</label><input class="fc" type="text" id="fDN" placeholder="e.g. DN-2024-0012"></div>
+            <div class="fg"><label>Bill of Lading</label><input class="fc" type="text" id="fBOL" placeholder="e.g. BOL-78943"></div>
+            <div class="fg"><label>Header Text</label><input class="fc" type="text" id="fHdrTxt" placeholder="e.g. GR for PO 4500001234"></div>
+            <div class="fg"><label>Storage Location</label><input class="fc" type="text" id="fSLoc" placeholder="e.g. 0001" maxlength="4"></div>
+          </div>
+
+          <div style="margin:18px 0 10px"><div class="section-label">📦 Line Items — Enter GR Quantities</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th><th>Material No.</th><th>Short Description</th>
+                  <th>UoM</th><th style="text-align:right">PO Qty</th>
+                  <th style="text-align:right">Open Qty</th><th style="text-align:right">GR Qty</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="liBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Validation Config -->
+    <div id="cfg-val" style="display:none">
+      <div class="card">
+        <div class="agent-hd" style="background:rgba(233,115,12,.06);border-color:rgba(233,115,12,.2)">
+          <div class="agent-hd-icon" style="background:#E9730C">✅</div>
+          <div>
+            <div class="agent-hd-name">PO Validation Agent</div>
+            <div class="agent-hd-desc">GET /sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV — read and validate PO data</div>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="ms ms-warn"><i>⚠️</i> This agent is read-only. It will not post any document — use it to verify PO readiness before GR.</div>
+          <div class="form-row" style="max-width:420px">
+            <div class="fg"><label class="req">PO Number to Validate</label><input class="fc" type="text" id="fValPO" placeholder="e.g. 4500001234"></div>
+            <div class="fg"><label>Validation Scope</label>
+              <select class="fc" id="fValScope">
+                <option>Full Validation (Header + Items)</option>
+                <option>Header Only</option>
+                <option>Quantity Checks Only</option>
+                <option>Vendor + Account Checks</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Read Config -->
+    <div id="cfg-read" style="display:none">
+      <div class="card">
+        <div class="agent-hd" style="background:rgba(24,137,24,.06);border-color:rgba(24,137,24,.2)">
+          <div class="agent-hd-icon" style="background:#188918">🔍</div>
+          <div>
+            <div class="agent-hd-name">PO Reader Agent</div>
+            <div class="agent-hd-desc">GET /sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV/A_PurchaseOrder — full PO read</div>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="form-row" style="max-width:500px">
+            <div class="fg"><label class="req">PO Number</label><input class="fc" type="text" id="fReadPO" placeholder="e.g. 4500001234"></div>
+            <div class="fg"><label>Display Level</label>
+              <select class="fc" id="fReadLevel">
+                <option>Header + All Line Items</option>
+                <option>Header Only</option>
+                <option>Line Items Only</option>
+                <option>Delivery Schedule Lines</option>
+                <option>Account Assignment</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Config -->
+    <div id="cfg-info" style="display:none">
+      <div class="card">
+        <div class="agent-hd" style="background:rgba(106,47,171,.06);border-color:rgba(106,47,171,.2)">
+          <div class="agent-hd-icon" style="background:#6A2FAB">💡</div>
+          <div>
+            <div class="agent-hd-name">Additional Information Agent</div>
+            <div class="agent-hd-desc">Aggregates data from vendor, material, and logistics SAP APIs</div>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="form-row" style="max-width:520px">
+            <div class="fg"><label class="req">PO Number</label><input class="fc" type="text" id="fInfoPO" placeholder="e.g. 4500001234"></div>
+            <div class="fg"><label>Information Type</label>
+              <select class="fc" id="fInfoType">
+                <option>All Available Information</option>
+                <option>Vendor Details &amp; Payment Terms</option>
+                <option>Material Master Data</option>
+                <option>Pricing Conditions</option>
+                <option>Delivery &amp; GR History</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="act-bar">
+      <div class="act-l"><button class="btn btn-g" onclick="goTo(1)">← Back</button></div>
+      <div class="act-r">
+        <button class="btn btn-g" onclick="resetAll()">Cancel</button>
+        <button class="btn btn-p" onclick="execAgent()">🚀 Execute Agent</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Results -->
+  <div class="view" id="v3">
+
+    <!-- GR Result -->
+    <div id="res-gr" style="display:none">
+      <div class="success-banner">
+        <div class="succ-ico">✓</div>
+        <div class="succ-title">Goods Receipt Posted Successfully</div>
+        <div class="succ-sub">The document has been created in SAP and stock has been updated</div>
+        <div class="doc-num" id="matDoc">5000000000</div>
+        <div class="doc-label">Material Document Number</div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-hd-icon">📋</div>
+          <div><div class="card-hd-title">GR Document Details</div></div>
+        </div>
+        <div class="card-bd">
+          <div class="kv-grid" id="grDets"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-hd-icon">📦</div>
+          <div><div class="card-hd-title">Items Received</div></div>
+        </div>
+        <div style="padding:0">
+          <div class="tbl-wrap" style="border:none;border-radius:0 0 var(--radius-lg) var(--radius-lg)">
+            <table>
+              <thead>
+                <tr><th>Item</th><th>Material</th><th>Description</th><th style="text-align:right">Qty Received</th><th>UoM</th><th>Stor. Loc.</th></tr>
+              </thead>
+              <tbody id="resTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generic Result -->
+    <div id="res-generic" style="display:none">
+      <div class="card">
+        <div class="card-hd">
+          <div class="card-hd-icon" id="gResIcon">📋</div>
+          <div>
+            <div class="card-hd-title" id="gResTitle">Result</div>
+            <div class="card-hd-sub" id="gResSub"></div>
+          </div>
+        </div>
+        <div class="card-bd">
+          <div class="info-box" id="gResBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="act-bar">
+      <div class="act-l"><button class="btn btn-g" onclick="goTo(2)">← Back</button></div>
+      <div class="act-r">
+        <button class="btn btn-g" onclick="resetAll()">🔄 New Request</button>
+        <button class="btn btn-p" onclick="showToast('📥 Export is not available in preview mode')">📥 Download Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Loading -->
+<div class="loading-bg" id="loadBg" style="display:none">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-ttl" id="loadTtl">Processing...</div>
+    <div class="loading-sub" id="loadSub">Please wait</div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
