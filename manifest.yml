@@ -1,12 +1,9 @@
+---
 applications:
-  - name: gr-automation-demo
+  - name: GR_Automation_Demo
     buildpacks:
-      - nodejs_buildpack
-    memory: 256M
-    disk_quota: 512M
+      - staticfile_buildpack
+    memory: 64M
     instances: 1
     random-route: true
-    command: node node_modules/.bin/cds serve --production
-    env:
-      NODE_ENV: production
-      CDS_ENV: production
+    path: .
