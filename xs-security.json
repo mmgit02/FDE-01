@@ -12,7 +12,8 @@
   ],
   "oauth2-configuration": {
     "redirect-uris": [
-      "https://org-pocus-poc-gr-automation-app.cfapps.us10.hana.ondemand.com/**"
+      "https://gr_automation_demo-noisy-capybara-ke.cfapps.us10.hana.ondemand.com/**",
+      "https://GR_Automation_Demo-noisy-capybara-ke.cfapps.us10.hana.ondemand.com/**"
     ]
   }
 }

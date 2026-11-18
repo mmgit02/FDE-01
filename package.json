@@ -4,12 +4,13 @@
   "description": "GR Automation: delivery note PDF -> PO match in S/4HANA -> goods receipt (101)",
   "engines": { "node": "22.x" },
   "scripts": {
-    "start": "cds-serve",
-    "dev": "cds-serve",
+    "start": "node start.js",
+    "serve": "cds-serve",
     "test": "node --test test/"
   },
   "dependencies": {
     "@sap-cloud-sdk/http-client": "^4",
+    "@sap/approuter": "^20",
     "@sap/cds": "^8",
     "@sap/xssec": "^3",
     "express": "^4",

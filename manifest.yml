@@ -1,16 +1,17 @@
 ---
-# GR Automation: CAP service (gr-automation-srv) + approuter/UI (gr-automation-app).
+# One app: approuter (login + UI) and CAP service in the same container, see start.js.
+# It replaces the earlier static wireframe app of the same name and keeps its route.
 # Service instances are created once, see README ("Deploy to BTP").
 applications:
-  - name: gr-automation-srv
+  - name: GR_Automation_Demo
     path: .
     buildpacks:
       - nodejs_buildpack
+    command: node start.js
     memory: 512M
     disk_quota: 1G
     instances: 1
-    routes:
-      - route: org-pocus-poc-gr-automation-srv.cfapps.us10.hana.ondemand.com
+    health-check-type: port
     services:
       - gr-automation-xsuaa
       - gr-automation-destination
@@ -18,17 +19,4 @@ applications:
     env:
       S4_DESTINATION: DED_HTTP_200
       QTY_TOLERANCE_PCT: "10"
-
-  - name: gr-automation-app
-    path: app
-    buildpacks:
-      - nodejs_buildpack
-    memory: 256M
-    disk_quota: 512M
-    instances: 1
-    routes:
-      - route: org-pocus-poc-gr-automation-app.cfapps.us10.hana.ondemand.com
-    services:
-      - gr-automation-xsuaa
-    env:
-      destinations: '[{"name":"gr-srv","url":"https://org-pocus-poc-gr-automation-srv.cfapps.us10.hana.ondemand.com","forwardAuthToken":true}]'
+      destinations: '[{"name":"gr-srv","url":"http://127.0.0.1:4004","forwardAuthToken":true}]'

@@ -7,7 +7,8 @@
 
 ## Project notes
 
-- Stateless CAP (Node) service in `srv/`, approuter + UI in `app/` (`app/resources`).
+- Stateless CAP (Node) service in `srv/`, approuter + UI in `app/` (`app/resources`), started together by `start.js`
+  in one CF app (the org route quota is full, so the app reuses the route of `GR_Automation_Demo`).
 - S/4HANA is reached only through the BTP destination `DED_HTTP_200` (SAP Cloud SDK); no URLs or credentials in code.
 - Tests: `npm test` (extraction + matching logic, no network).
-- Deploy: `cf8 push -f manifest.yml` (apps `gr-automation-srv` and `gr-automation-app`).
+- Deploy: `cf8 push -f manifest.yml` (app `GR_Automation_Demo`).

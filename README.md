@@ -21,9 +21,10 @@ quantity (S/4HANA itself still rejects over-delivery when posting). Scanned PDFs
 
 ```
 srv/              CAP service (REST, /api/gr) - extraction, matching, S/4 access
-app/              approuter (XSUAA login) + UI in app/resources
+app/              approuter config (XSUAA login, xs-app.json) + UI in app/resources
 test/             unit tests (npm test)
-manifest.yml      gr-automation-srv + gr-automation-app
+start.js          starts CAP (127.0.0.1:4004) and the approuter (public $PORT) in one CF app
+manifest.yml      app GR_Automation_Demo
 xs-security.json  XSUAA descriptor
 .github/workflows/deploy.yml   push to main -> tests -> cf8 push
 ```
