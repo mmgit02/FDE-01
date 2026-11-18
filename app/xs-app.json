@@ -1,16 +1,19 @@
 {
   "welcomeFile": "/index.html",
-  "authenticationMethod": "none",
+  "authenticationMethod": "route",
   "routes": [
     {
       "source": "^/api/(.*)$",
+      "target": "/api/$1",
       "destination": "gr-srv",
-      "authenticationType": "none"
+      "authenticationType": "xsuaa",
+      "csrfProtection": true
     },
     {
-      "source": "^(.*)$",
-      "localDir": ".",
-      "authenticationType": "none"
+      "source": "^/(.*)$",
+      "target": "$1",
+      "localDir": "resources",
+      "authenticationType": "xsuaa"
     }
   ]
 }

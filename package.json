@@ -1,43 +1,33 @@
 {
   "name": "gr-automation-demo",
-  "version": "1.0.0",
-  "description": "GR Automation: PDF delivery note extraction + S/4HANA goods receipt posting",
-  "engines": { "node": ">=18" },
-  "main": "srv/gr-service.js",
+  "version": "1.1.0",
+  "description": "GR Automation: delivery note PDF -> PO match in S/4HANA -> goods receipt (101)",
+  "engines": { "node": "22.x" },
   "scripts": {
-    "start": "cds serve --production",
-    "dev": "cds watch",
-    "build": "cds build --production",
-    "test": "echo \"No tests yet\" && exit 0"
+    "start": "cds-serve",
+    "dev": "cds-serve",
+    "test": "node --test test/"
   },
   "dependencies": {
+    "@sap-cloud-sdk/http-client": "^4",
     "@sap/cds": "^8",
     "@sap/xssec": "^3",
-    "axios": "^1.6.0",
     "express": "^4",
-    "multer": "^1.4.5-lts.1",
     "passport": "^0.7",
-    "pdf-parse": "^1.1.1",
-    "uuid": "^9"
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
-    "@sap/cds-dk": "^8",
-    "sqlite3": "^5"
+    "@sap/cds-dk": "^8"
   },
   "cds": {
     "requires": {
-      "db": {
-        "kind": "sqlite",
-        "credentials": { "database": ":memory:" },
-        "[production]": { "kind": "hana" }
-      },
       "auth": {
-        "kind": "mocked",
-        "[production]": { "kind": "xsuaa" }
+        "[production]": { "kind": "xsuaa" },
+        "[development]": { "kind": "mocked" }
       }
     },
     "server": {
-      "static": true
+      "body_parser": { "limit": "15mb" }
     }
   }
 }

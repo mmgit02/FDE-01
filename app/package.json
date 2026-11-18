@@ -1,0 +1,8 @@
+{
+  "name": "gr-automation-approuter",
+  "version": "1.1.0",
+  "description": "Approuter + UI for GR Automation",
+  "engines": { "node": "22.x" },
+  "scripts": { "start": "node node_modules/@sap/approuter/approuter.js" },
+  "dependencies": { "@sap/approuter": "^20" }
+}

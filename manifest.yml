@@ -1,9 +1,34 @@
 ---
+# GR Automation: CAP service (gr-automation-srv) + approuter/UI (gr-automation-app).
+# Service instances are created once, see README ("Deploy to BTP").
 applications:
-  - name: GR_Automation_Demo
-    buildpacks:
-      - staticfile_buildpack
-    memory: 64M
-    instances: 1
-    random-route: true
+  - name: gr-automation-srv
     path: .
+    buildpacks:
+      - nodejs_buildpack
+    memory: 512M
+    disk_quota: 1G
+    instances: 1
+    routes:
+      - route: org-pocus-poc-gr-automation-srv.cfapps.us10.hana.ondemand.com
+    services:
+      - gr-automation-xsuaa
+      - gr-automation-destination
+      - gr-automation-connectivity
+    env:
+      S4_DESTINATION: DED_HTTP_200
+      QTY_TOLERANCE_PCT: "10"
+
+  - name: gr-automation-app
+    path: app
+    buildpacks:
+      - nodejs_buildpack
+    memory: 256M
+    disk_quota: 512M
+    instances: 1
+    routes:
+      - route: org-pocus-poc-gr-automation-app.cfapps.us10.hana.ondemand.com
+    services:
+      - gr-automation-xsuaa
+    env:
+      destinations: '[{"name":"gr-srv","url":"https://org-pocus-poc-gr-automation-srv.cfapps.us10.hana.ondemand.com","forwardAuthToken":true}]'

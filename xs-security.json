@@ -9,5 +9,10 @@
   "role-templates": [
     { "name": "GRUser",  "description": "Standard GR user",  "scope-references": ["$XSAPPNAME.GRUser"]  },
     { "name": "GRAdmin", "description": "GR Administrator",  "scope-references": ["$XSAPPNAME.GRAdmin"] }
-  ]
+  ],
+  "oauth2-configuration": {
+    "redirect-uris": [
+      "https://org-pocus-poc-gr-automation-app.cfapps.us10.hana.ondemand.com/**"
+    ]
+  }
 }

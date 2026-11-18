@@ -1,0 +1,16 @@
+.git/
+.github/
+.claude/
+node_modules/
+app/
+test/
+css/
+js/
+index.html
+Staticfile
+.nojekyll
+Notes.txt
+README.md
+CLAUDE.md
+mta.yaml
+*.log

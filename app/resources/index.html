@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GR Automation</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Goods Receipt from Delivery Note</h1>
+  <span id="who" class="muted"></span>
+</header>
+
+<main>
+  <ol class="steps" id="steps">
+    <li data-step="1" class="active">1 Upload</li>
+    <li data-step="2">2 Review</li>
+    <li data-step="3">3 Match</li>
+    <li data-step="4">4 Post</li>
+  </ol>
+
+  <div id="msg" role="alert" hidden></div>
+
+  <section id="s1">
+    <h2>Upload delivery note</h2>
+    <p class="muted">Select the delivery note or shipping notice as a PDF. PO number, PO item, material, quantity and unit are read from it.</p>
+    <input type="file" id="file" accept="application/pdf,.pdf">
+    <button id="btnUpload" class="primary" disabled>Extract data</button>
+  </section>
+
+  <section id="s2" hidden>
+    <h2>Review extracted data</h2>
+    <p class="muted">Reading a PDF is not exact. Correct any value, delete wrong rows or add missing ones before matching.</p>
+    <div id="warnings"></div>
+    <table id="tblExtract">
+      <thead><tr><th>PO number</th><th>PO item</th><th>Material</th><th>Description</th><th>Quantity</th><th>UoM</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button id="btnAddRow">Add row</button>
+      <button id="btnBack1">Back</button>
+      <button id="btnMatch" class="primary">Match with S/4HANA</button>
+    </div>
+  </section>
+
+  <section id="s3" hidden>
+    <h2>Matching purchase order items</h2>
+    <p class="muted" id="tolInfo"></p>
+    <table id="tblMatch">
+      <thead><tr><th><input type="checkbox" id="selAll" title="Select all possible"></th><th>PO / item</th><th>Material</th><th>Delivery qty</th><th>PO qty</th><th>Deviation</th><th>Status</th><th>Note</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button id="btnBack2">Back</button>
+      <button id="btnReview" class="primary" disabled>Review selection</button>
+    </div>
+  </section>
+
+  <section id="s4" hidden>
+    <h2>Confirm goods receipt</h2>
+    <p>Movement type <b>101</b> against purchase order for the selected items:</p>
+    <table id="tblConfirm">
+      <thead><tr><th>PO / item</th><th>Material</th><th>Quantity</th><th>UoM</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <label class="inline">Posting date <input type="date" id="postDate"></label>
+    <label class="inline"><input type="checkbox" id="dryRun"> Validate only (do not post)</label>
+    <div class="actions">
+      <button id="btnBack3">Back</button>
+      <button id="btnPost" class="primary">Create goods receipt</button>
+    </div>
+    <div id="result" hidden></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

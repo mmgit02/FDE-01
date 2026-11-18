@@ -1,298 +1,121 @@
 'use strict';
+const cds = require('@sap/cds');
+const { extractFromPdf } = require('./lib/pdf-extract');
+const { matchLine } = require('./lib/matching');
+const s4 = require('./lib/s4');
 
-const cds  = require('@sap/cds');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
+const TOLERANCE_PCT = Number.isFinite(Number(process.env.QTY_TOLERANCE_PCT))
+  ? Number(process.env.QTY_TOLERANCE_PCT) : 10;
+const MAX_LINES = 200;
 
-// ─── PDF extraction helpers ───────────────────────────────────────────────────
-
-function extractPOData(text) {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const result = { poNumber: null, vendor: null, items: [] };
-
-  // PO Number patterns: 10-digit starting with 45, or labeled
-  const poMatch = text.match(/(?:P\.?O\.?\s*(?:Number|No\.?|#)?\s*[:\-]?\s*)(\d{10})/i)
-                || text.match(/\b(45\d{8})\b/);
-  if (poMatch) result.poNumber = poMatch[1];
-
-  // Vendor
-  const vendorMatch = text.match(/(?:Vendor|Supplier)\s*[:\-]?\s*([A-Z0-9\s&]{3,40})/i);
-  if (vendorMatch) result.vendor = vendorMatch[1].trim();
-
-  // Line items: look for rows with material + qty + UoM
-  // Pattern: optional item no, material (8-18 chars), description, qty (decimal), UoM
-  const itemRe = /(\d{10,18})\s+([A-Za-z0-9 \/\-]{5,40?})\s+([\d,]+\.?\d*)\s*(PC|KG|M2|LT|EA|TO|ST|BOX|PAL|BAG|M|L)/gi;
-  let m;
-  let itemNo = 10;
-  while ((m = itemRe.exec(text)) !== null) {
-    result.items.push({
-      poItem      : String(itemNo).padStart(5, '0'),
-      material    : m[1].trim(),
-      description : m[2].trim(),
-      extractedQty: parseFloat(m[3].replace(',', '')),
-      uom         : m[4].toUpperCase(),
-    });
-    itemNo += 10;
-  }
-
-  // Fallback: if no items found via pattern, try table-style parsing
-  if (result.items.length === 0) {
-    for (const line of lines) {
-      const cols = line.split(/\s{2,}|\t/);
-      if (cols.length >= 3) {
-        const qty = parseFloat(cols[cols.length - 2]);
-        const uom = cols[cols.length - 1];
-        const mat = cols[0];
-        if (!isNaN(qty) && /^[A-Z]{2,3}$/.test(uom) && /^\d{8,18}$/.test(mat)) {
-          result.items.push({
-            poItem      : String(itemNo).padStart(5, '0'),
-            material    : mat,
-            description : cols.slice(1, -2).join(' '),
-            extractedQty: qty,
-            uom,
-          });
-          itemNo += 10;
-        }
-      }
+function clean(lines, req) {
+  if (!Array.isArray(lines) || !lines.length) req.reject(400, 'No lines supplied.');
+  if (lines.length > MAX_LINES) req.reject(400, `Too many lines (max ${MAX_LINES}).`);
+  return lines.map((l, i) => {
+    const n = i + 1;
+    const poNumber = String(l.poNumber || '').trim();
+    const quantity = Number(l.quantity);
+    if (!/^\d{10}$/.test(poNumber)) req.reject(400, `Line ${n}: PO number must be 10 digits.`);
+    if (!(quantity > 0)) req.reject(400, `Line ${n}: quantity must be greater than 0.`);
+    if (!String(l.uom || '').trim()) req.reject(400, `Line ${n}: unit of measure is missing.`);
+    if (!String(l.poItem || '').trim() && !String(l.material || '').trim()) {
+      req.reject(400, `Line ${n}: give a PO item or a material.`);
     }
+    return {
+      poNumber,
+      poItem: String(l.poItem || '').trim(),
+      material: String(l.material || '').trim(),
+      description: String(l.description || '').slice(0, 100),
+      quantity,
+      uom: String(l.uom).trim().toUpperCase(),
+    };
+  });
+}
+
+/** Read each PO once from S/4 and match every line against it. */
+async function matchAll(lines) {
+  const poItems = new Map();
+  for (const po of new Set(lines.map(l => l.poNumber))) {
+    poItems.set(po, await s4.fetchPurchaseOrderItems(po));
   }
-
-  return result;
+  return lines.map(l => ({ match: matchLine(l, poItems.get(l.poNumber), TOLERANCE_PCT), s4Items: poItems.get(l.poNumber) }));
 }
-
-// ─── S/4HANA connectivity via BTP destination DED_HTTP_200 ───────────────────
-
-async function getDestinationUrl() {
-  // In BTP, destinations are injected via VCAP_SERVICES
-  try {
-    const vcap = JSON.parse(process.env.VCAP_SERVICES || '{}');
-    const dest = (vcap['destination'] || [])[0];
-    if (dest) return null; // use xsenv + @sap/connectivity-destination-service in production
-  } catch (_) {}
-  return process.env.S4_BASE_URL || null;
-}
-
-async function fetchPOFromS4(poNumber, destUrl) {
-  if (!destUrl) return null; // mock mode
-
-  const url = `${destUrl}/sap/opu/odata/sap/API_PURCHASEORDER_PROCESS_SRV`
-            + `/A_PurchaseOrderItem?$filter=PurchaseOrder eq '${poNumber}'`
-            + `&$select=PurchaseOrder,PurchaseOrderItem,Material,PurchaseOrderItemText,`
-            + `OrderQuantity,PurchaseOrderQuantityUnit,Plant,StorageLocation,`
-            + `QuantityInPurchaseOrderUnit&$format=json`;
-
-  const resp = await axios.get(url, {
-    headers: { 'Accept': 'application/json', 'x-csrf-token': 'fetch' },
-    timeout: 10000,
-  });
-  return resp.data?.d?.results || [];
-}
-
-async function postGRToS4(payload, destUrl) {
-  if (!destUrl) {
-    // Demo mode: return fake document number
-    const docNo = '50' + (Math.random() * 90000000 + 10000000 | 0);
-    return { MaterialDocument: docNo, MaterialDocumentYear: new Date().getFullYear().toString() };
-  }
-
-  const url = `${destUrl}/sap/opu/odata/sap/API_GOODSMVT_SRV/A_GoodsMovement`;
-
-  // First get CSRF token
-  const csrf = await axios.get(`${destUrl}/sap/opu/odata/sap/API_GOODSMVT_SRV`, {
-    headers: { 'x-csrf-token': 'fetch' }, timeout: 8000,
-  });
-  const token = csrf.headers['x-csrf-token'];
-
-  const resp = await axios.post(url, payload, {
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'x-csrf-token': token,
-    },
-    timeout: 15000,
-  });
-  return resp.data?.d || {};
-}
-
-// ─── Mock S/4HANA data for local/demo mode ───────────────────────────────────
-
-function mockS4Items(poNumber, extractedItems) {
-  return extractedItems.map((it, i) => ({
-    PurchaseOrder       : poNumber,
-    PurchaseOrderItem   : it.poItem,
-    Material            : it.material,
-    PurchaseOrderItemText: it.description || `Material ${it.material}`,
-    OrderQuantity       : String(it.extractedQty * 1.2),     // S4 PO qty slightly higher
-    QuantityInPurchaseOrderUnit: String(it.extractedQty * 0.8), // remaining open qty
-    PurchaseOrderQuantityUnit: it.uom,
-    Plant               : '1001',
-    StorageLocation     : '0001',
-  }));
-}
-
-// ─── CAP service implementation ───────────────────────────────────────────────
 
 module.exports = class GRService extends cds.ApplicationService {
+  init() {
+    this.on('config', req => ({
+      tolerancePct: TOLERANCE_PCT,
+      destination: s4.DESTINATION.destinationName,
+      user: req.user?.id || '',
+    }));
 
-  async init() {
-    const { POItems, GRDocs } = this.entities;
-
-    // ── uploadPDF ──────────────────────────────────────────────────────────────
-    this.on('uploadPDF', async (req) => {
+    this.on('extractFromPDF', async req => {
       const { fileName, fileContent } = req.data;
-
-      let pdfText = '';
+      if (!fileContent) req.reject(400, 'No file content supplied.');      let result;
       try {
-        const pdfParse = require('pdf-parse');
-        const buffer   = Buffer.from(fileContent, 'base64');
-        const parsed   = await pdfParse(buffer);
-        pdfText        = parsed.text;
+        result = await extractFromPdf(Buffer.from(fileContent, 'base64'));
       } catch (err) {
-        // pdf-parse may fail on some PDFs; use raw filename fallback
-        pdfText = `PO Number: 4500001234\nMaterial: 100000012  Steel Pipe 40mm  500  PC\n`
-                + `Material: 100000056  Copper Fitting  1200  PC`;
-        req.info(`PDF parsed in demo mode (${err.message})`);
+        if (err.code === 400) req.reject(400, err.message);
+        cds.log('gr').error('PDF extraction failed:', err.message, err.stack);
+        req.reject(422, 'The PDF could not be read.');
       }
-
-      const extracted  = extractPOData(pdfText);
-      const sessionId  = uuidv4();
-      const poNumber   = extracted.poNumber || 'UNKNOWN';
-
-      // Fallback demo items if extraction found nothing
-      const items = extracted.items.length ? extracted.items : [
-        { poItem:'00010', material:'100000012', description:'Steel Pipe 40mm DN',    extractedQty:500,  uom:'PC' },
-        { poItem:'00020', material:'100000056', description:'Copper Fitting T-Joint', extractedQty:1200, uom:'PC' },
-        { poItem:'00030', material:'200000089', description:'Stainless Sheet 2mm',    extractedQty:350,  uom:'KG' },
-      ];
-
-      await INSERT.into(POItems).entries(
-        items.map(it => ({
-          ID          : uuidv4(),
-          sessionId,
-          poNumber,
-          poItem      : it.poItem,
-          material    : it.material,
-          description : it.description,
-          extractedQty: it.extractedQty,
-          uom         : it.uom,
-          grQty       : it.extractedQty,
-          matchStatus : 'PENDING',
-          selected    : false,
-        }))
-      );
-
-      return { sessionId, poNumber, itemCount: items.length, rawText: pdfText.slice(0, 500) };
+      return { fileName: fileName || '', poNumber: result.poNumber, lines: result.lines, warnings: result.warnings };
     });
 
-    // ── matchWithS4 ────────────────────────────────────────────────────────────
-    this.on('matchWithS4', async (req) => {
-      const { sessionId } = req.data;
-      const rows    = await SELECT.from(POItems).where({ sessionId });
-      if (!rows.length) req.error(404, `No items for session ${sessionId}`);
-
-      const poNumber = rows[0].poNumber;
-      const destUrl  = await getDestinationUrl();
-
-      let s4Items;
+    this.on('matchPurchaseOrders', async req => {
+      const lines = clean(req.data.lines, req);
       try {
-        s4Items = await fetchPOFromS4(poNumber, destUrl);
-        if (!s4Items || !s4Items.length) throw new Error('empty');
-      } catch (_) {
-        s4Items = mockS4Items(poNumber, rows);
+        const matched = await matchAll(lines);
+        return { tolerancePct: TOLERANCE_PCT, lines: matched.map(m => m.match) };
+      } catch (err) {
+        req.reject(err.code === 400 || err.code === 502 ? err.code : 500, err.message);
       }
+    });
 
-      const updated = [];
-      for (const row of rows) {
-        const s4 = s4Items.find(x => x.PurchaseOrderItem === row.poItem
-                                  || x.Material === row.material);
+    this.on('postGoodsReceipt', async req => {
+      const lines = clean(req.data.lines, req);
+      const dryRun = req.data.dryRun === true;
+      const postingDate = req.data.postingDate || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(postingDate)) req.reject(400, 'Invalid posting date.');
 
-        let matchStatus = 'NOT_FOUND';
-        let openQty     = row.extractedQty;
-
-        if (s4) {
-          openQty = parseFloat(s4.QuantityInPurchaseOrderUnit || s4.OrderQuantity);
-          const diff = Math.abs(row.extractedQty - openQty) / openQty * 100;
-          matchStatus = diff === 0 ? 'MATCHED'
-                      : diff <= row.tolerance ? 'TOLERANCE'
-                      : 'MISMATCH';
+      try {
+        // Never trust the browser: match again against S/4 right before posting.
+        const matched = await matchAll(lines);
+        const blocked = matched.filter(m => !m.match.selectable);
+        if (blocked.length) {
+          req.reject(409, `Cannot post: ${blocked.map(b =>
+            `PO ${b.match.poNumber}/${b.match.poItem || b.match.material} - ${b.match.message}`).join('; ')}`);
         }
 
-        await UPDATE(POItems).set({ matchStatus, openQty, grQty: row.extractedQty })
-                             .where({ ID: row.ID });
-
-        updated.push({
-          id          : row.ID,
-          poItem      : row.poItem,
-          material    : row.material,
-          description : row.description,
-          extractedQty: row.extractedQty,
-          openQty,
-          uom         : row.uom,
-          matchStatus,
-          grQty       : row.extractedQty,
+        const items = matched.map(({ match, s4Items }) => {
+          const s4Item = s4Items.find(i => String(i.PurchaseOrderItem).padStart(5, '0') === match.poItem);
+          return {
+            poNumber: match.poNumber, poItem: match.poItem,
+            s4Material: s4Item.Material, material: s4Item.Material,
+            quantity: match.quantity, uom: match.s4Uom, s4Uom: match.s4Uom,
+            plant: s4Item.Plant || '', storageLocation: s4Item.StorageLocation || '',
+          };
         });
-      }
-      return updated;
-    });
 
-    // ── createGoodsReceipt ─────────────────────────────────────────────────────
-    this.on('createGoodsReceipt', async (req) => {
-      const { sessionId, postingDate, items } = req.data;
-      if (!items || !items.length) return req.error(400, 'No items selected');
+        const payload = s4.buildGoodsReceiptPayload(items, postingDate);
+        const view = items.map(i => ({
+          poNumber: i.poNumber, poItem: i.poItem, material: i.material,
+          quantity: i.quantity, uom: i.uom, plant: i.plant, storageLocation: i.storageLocation,
+        }));
 
-      const rows = await SELECT.from(POItems).where({ sessionId });
-      const poNumber = rows[0]?.poNumber || 'UNKNOWN';
+        if (dryRun) {
+          return { dryRun: true, materialDocument: '', fiscalYear: '', items: view,
+            message: `Validation passed for ${view.length} item(s). Nothing was posted.` };
+        }
 
-      const selectedRows = rows.filter(r => items.some(i => i.id === r.ID));
-      if (!selectedRows.length) return req.error(400, 'Selected items not found in session');
-
-      const destUrl = await getDestinationUrl();
-
-      // Build GR payload (SAP API_GOODSMVT_SRV format)
-      const grPayload = {
-        GoodsMovementCode: '01',
-        DocumentDate      : postingDate,
-        PostingDate       : postingDate,
-        to_GoodsMovementItem: {
-          results: selectedRows.map((r, i) => {
-            const selItem = items.find(x => x.id === r.ID);
-            return {
-              DocumentItemText   : `GR for PO ${poNumber} item ${r.poItem}`,
-              GoodsMovementType  : '101',
-              Plant              : r.plant || '1001',
-              StorageLocation    : r.storageLoc || '0001',
-              Material           : r.material,
-              Quantity           : String(selItem?.grQty || r.grQty),
-              QuantityUnit       : r.uom,
-              PurchaseOrder      : poNumber,
-              PurchaseOrderItem  : r.poItem,
-            };
-          }),
-        },
-      };
-
-      let grResult;
-      try {
-        grResult = await postGRToS4(grPayload, destUrl);
+        const posted = await s4.postMaterialDocument(payload);
+        cds.log('gr').info(`GR ${posted.materialDocument}/${posted.fiscalYear} posted by ${req.user?.id} (${view.length} items)`);
+        return { dryRun: false, ...posted, items: view,
+          message: `Goods receipt ${posted.materialDocument}/${posted.fiscalYear} created.` };
       } catch (err) {
-        const docNo = '50' + (Math.random() * 90000000 + 10000000 | 0);
-        grResult    = { MaterialDocument: docNo, MaterialDocumentYear: new Date().getFullYear().toString() };
+        if (err.code && err.code >= 400 && err.code < 600 && typeof err.code === 'number') req.reject(err.code, err.message);
+        throw err;
       }
-
-      await INSERT.into(GRDocs).entries({
-        ID          : uuidv4(),
-        sessionId,
-        matDocument : grResult.MaterialDocument,
-        fiscalYear  : grResult.MaterialDocumentYear,
-        postingDate,
-        poNumber,
-      });
-
-      return {
-        matDocument : grResult.MaterialDocument,
-        fiscalYear  : grResult.MaterialDocumentYear,
-        message     : `GR document ${grResult.MaterialDocument}/${grResult.MaterialDocumentYear} created successfully.`,
-      };
     });
 
     return super.init();

@@ -2,22 +2,32 @@ name: Deploy to SAP BTP Cloud Foundry
 
 on:
   push:
-    branches: [main, gr-automation-demo]
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: btp-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy GR_Automation_Demo
+    name: Deploy GR Automation (srv + approuter)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Unit tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm test
+
       - name: Install CF CLI
         run: |
-          curl -L "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" | tar -zx
-          sudo mv cf8 /usr/local/bin/cf8
+          curl -fsSL "https://packages.cloudfoundry.org/stable?release=linux64-binary&version=v8&source=github" | tar -zx
+          sudo mv "$(ls cf8 cf 2>/dev/null | head -n1)" /usr/local/bin/cf8
           cf8 --version
 
       - name: CF Login
@@ -31,7 +41,7 @@ jobs:
           cf8 login -a "$CF_API" -u "$CF_USERNAME" -p "$CF_PASSWORD" -o "$CF_ORG" -s "$CF_SPACE"
 
       - name: Deploy to BTP
-        run: cf8 push GR_Automation_Demo -f manifest.yml
+        run: cf8 push -f manifest.yml
 
       - name: Show app URL
-        run: cf8 app GR_Automation_Demo | grep routes
+        run: cf8 app gr-automation-app | grep -i routes
